@@ -12,16 +12,16 @@ import { ActiveTab, UserRole, LeaveRequest, LeaveBalance, ModelName, ThinkingLev
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [userRole, setUserRole] = useState<UserRole>('employee');
+  const [userRole, setUserRole] = useState<UserRole>('manager'); // Set to manager so user can see approval workflow immediately
   const [currentModel, setCurrentModel] = useState<ModelName>('gemini-4-hydrogen');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>('HIGH');
 
   const [balances, setBalances] = useState<LeaveBalance[]>([
-    { leaveType: 'Annual Leave', total: 20, used: 6, pending: 2 },
-    { leaveType: 'Sick Leave', total: 14, used: 2, pending: 0 },
+    { leaveType: 'Annual Leave', total: 20, used: 4, pending: 4 },
+    { leaveType: 'Sick Leave', total: 14, used: 1, pending: 0 },
     { leaveType: 'Parental Leave', total: 60, used: 0, pending: 0 },
     { leaveType: 'Compassionate Leave', total: 5, used: 0, pending: 0 },
-    { leaveType: 'Study Leave', total: 10, used: 3, pending: 0 },
+    { leaveType: 'Study Leave', total: 10, used: 0, pending: 0 },
   ]);
 
   const [requests, setRequests] = useState<LeaveRequest[]>(() => {
@@ -31,27 +31,30 @@ export default function App() {
     } catch {}
     return [
       {
-        id: '1',
-        employeeName: 'Alex Morgan',
-        employeeEmail: 'alex.morgan@company.com',
-        department: 'Engineering',
+        id: 'conn-1',
+        employeeName: 'Connie Cho',
+        employeeEmail: 'connie.cho@company.com',
+        department: 'Manufacturing & Stamping',
+        jobTitle: 'Production Line Operator',
         leaveType: 'Annual Leave',
-        startDate: '2026-12-10',
-        endDate: '2026-12-15',
-        totalDays: 6,
+        startDate: '2026-12-01',
+        endDate: '2026-12-04',
+        totalDays: 4,
         isHalfDay: false,
-        reason: 'Family winter vacation and holiday travel.',
-        handoverNotes: 'All sprint tasks completed. Sarah Jenkins covering emergency bug fixes.',
-        coverageColleague: 'Sarah Jenkins',
-        status: 'Approved',
-        appliedAt: Date.now() - 86400000 * 5,
-        managerRemarks: 'Approved. Enjoy your vacation!',
+        reason: 'Family trip',
+        handoverNotes: 'Production line B coverage assigned to Robert Taylor during 4-day absence.',
+        coverageColleague: 'Robert Taylor',
+        status: 'Pending',
+        appliedAt: Date.now(),
+        approverName: 'Marcus Vance (Manufacturing Supervisor)',
+        workflowStep: 'Level 1: Line Supervisor Review',
       },
       {
         id: '2',
         employeeName: 'Jordan Lee',
         employeeEmail: 'jordan.lee@company.com',
         department: 'Product',
+        jobTitle: 'Product Manager',
         leaveType: 'Sick Leave',
         startDate: '2026-11-22',
         endDate: '2026-11-23',
@@ -62,6 +65,8 @@ export default function App() {
         coverageColleague: 'David Chen',
         status: 'Pending',
         appliedAt: Date.now() - 86400000,
+        approverName: 'Elena Rostova (Head of Product)',
+        workflowStep: 'Level 1: Department Head Review',
       },
     ];
   });
@@ -80,6 +85,8 @@ export default function App() {
       id: Date.now().toString(),
       appliedAt: Date.now(),
       status: 'Pending',
+      approverName: 'Marcus Vance (Manufacturing Supervisor)',
+      workflowStep: 'Level 1: Line Supervisor Review',
     };
     setRequests((prev) => [request, ...prev]);
 
@@ -93,7 +100,6 @@ export default function App() {
     setRequests((prev) =>
       prev.map((r) => {
         if (r.id === id) {
-          // If approved, update used balance
           if (status === 'Approved') {
             setBalances((bals) =>
               bals.map((b) =>
@@ -109,7 +115,7 @@ export default function App() {
               )
             );
           }
-          return { ...r, status, managerRemarks: remarks };
+          return { ...r, status, managerRemarks: remarks, workflowStep: status === 'Approved' ? 'Completed (Approved)' : 'Completed (Rejected)' };
         }
         return r;
       })

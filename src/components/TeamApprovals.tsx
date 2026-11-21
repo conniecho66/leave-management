@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquare, Check, X, User, Calendar, MessageSquare, ShieldCheck } from 'lucide-react';
+import { CheckSquare, Check, X, User, Calendar, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
 import { LeaveRequest } from '../types';
 
 interface TeamApprovalsProps {
@@ -25,7 +25,7 @@ export const TeamApprovals: React.FC<TeamApprovalsProps> = ({ requests, onUpdate
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">PIC & Manager Leave Approvals</h2>
-            <p className="text-xs text-zinc-400">Review pending team leave applications and manage coverage</p>
+            <p className="text-xs text-zinc-400">Review pending team leave applications, assigned approvers, and workflow status</p>
           </div>
         </div>
         <div className="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-xs font-medium text-emerald-400">
@@ -54,12 +54,29 @@ export const TeamApprovals: React.FC<TeamApprovalsProps> = ({ requests, onUpdate
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-white">{r.employeeName}</h3>
-                      <p className="text-xs text-zinc-400">{r.department} • {r.employeeEmail}</p>
+                      <p className="text-xs text-zinc-400">{r.department} {r.jobTitle ? `• ${r.jobTitle}` : ''}</p>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                     {r.leaveType}
                   </span>
+                </div>
+
+                {/* Workflow & Approver Assignment */}
+                <div className="bg-zinc-950 p-3.5 rounded-xl border border-zinc-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500 flex items-center space-x-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Assigned Approver (PIC):</span>
+                    </span>
+                    <span className="font-semibold text-white">{r.approverName || 'Marcus Vance (Manufacturing Supervisor)'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Workflow Status:</span>
+                    <span className="font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      {r.workflowStep || 'Level 1: Line Supervisor Review'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs bg-zinc-950 p-3.5 rounded-xl border border-zinc-800">

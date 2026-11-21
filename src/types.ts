@@ -11,6 +11,7 @@ export interface LeaveRequest {
   employeeName: string;
   employeeEmail: string;
   department: string;
+  jobTitle?: string;
   leaveType: LeaveType;
   startDate: string;
   endDate: string;
@@ -23,6 +24,8 @@ export interface LeaveRequest {
   status: LeaveStatus;
   appliedAt: number;
   managerRemarks?: string;
+  approverName?: string;
+  workflowStep?: string;
 }
 
 export interface LeaveBalance {

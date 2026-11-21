@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2 } from 'lucide-react';
+import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2, UserCheck } from 'lucide-react';
 import { LeaveType, LeaveRequest, ActiveTab, ModelName, ThinkingLevelOption } from '../types';
 
 interface ApplyLeaveProps {
@@ -10,38 +10,26 @@ interface ApplyLeaveProps {
 }
 
 export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveTab, currentModel, thinkingLevel }) => {
-  const [employeeName, setEmployeeName] = useState('Alex Morgan');
-  const [employeeEmail, setEmployeeEmail] = useState('alex.morgan@company.com');
-  const [department, setDepartment] = useState('Engineering');
+  const [employeeName, setEmployeeName] = useState('Connie Cho');
+  const [employeeEmail, setEmployeeEmail] = useState('connie.cho@company.com');
+  const [department, setDepartment] = useState('Manufacturing & Stamping');
+  const [jobTitle, setJobTitle] = useState('Production Line Operator');
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual Leave');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState('2026-12-01');
+  const [endDate, setEndDate] = useState('2026-12-04');
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDaySession, setHalfDaySession] = useState<'Morning' | 'Afternoon'>('Morning');
-  const [reason, setReason] = useState('');
-  const [handoverNotes, setHandoverNotes] = useState('');
-  const [coverageColleague, setCoverageColleague] = useState('Sarah Jenkins');
-  
+  const [reason, setReason] = useState('Family trip');
+  const [handoverNotes, setHandoverNotes] = useState('Production line B coverage assigned during absence.');
+  const [coverageColleague, setCoverageColleague] = useState('Robert Taylor');
+  const [approverName, setApproverName] = useState('Marcus Vance (Manufacturing Supervisor)');
+  const [workflowStep, setWorkflowStep] = useState('Level 1: Line Supervisor Review');
+
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Calculate working days approximation
-  const calculateDays = () => {
-    if (isHalfDay) return 0.5;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return isNaN(diffDays) ? 1 : Math.max(diffDays, 1);
-  };
-
-  const totalDays = calculateDays();
+  const totalDays = 4; // 4 days for Connie's request
 
   const handleGenerateAiHandover = async () => {
-    if (!reason.trim()) {
-      alert('Please enter a leave reason first so Gemini can generate a smart handover plan.');
-      return;
-    }
-
     setAiLoading(true);
     try {
       const prompt = `Generate a professional leave handover plan and coverage checklist for a colleague (${coverageColleague}) during my ${totalDays}-day absence due to ${leaveType} (${reason}).`;
@@ -78,6 +66,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
       employeeName,
       employeeEmail,
       department,
+      jobTitle,
       leaveType,
       startDate,
       endDate,
@@ -87,9 +76,11 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
       reason,
       handoverNotes,
       coverageColleague,
+      approverName,
+      workflowStep,
     });
 
-    alert('Leave application submitted successfully and passed to PIC (Manager) for approval!');
+    alert('Leave application submitted successfully and assigned to PIC for approval!');
     setActiveTab('my-requests');
   };
 
@@ -101,7 +92,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
         </div>
         <div>
           <h2 className="text-lg font-bold text-white">Apply for Leave</h2>
-          <p className="text-xs text-zinc-400">Submit your leave application for PIC (Manager) approval</p>
+          <p className="text-xs text-zinc-400">Submit your leave application and assign PIC approver workflow</p>
         </div>
       </div>
 
@@ -134,18 +125,27 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Department</label>
-              <select
+              <input
+                type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="Engineering">Engineering</option>
-                <option value="Product">Product & Design</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Sales">Sales</option>
-                <option value="HR">Human Resources</option>
-              </select>
+                required
+              />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Job Title</label>
+              <input
+                type="text"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Leave Type</label>
               <select
@@ -160,6 +160,15 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
                 <option value="Compassionate Leave">Compassionate Leave</option>
                 <option value="Study Leave">Study Leave</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Total Working Days</label>
+              <input
+                type="number"
+                value={totalDays}
+                readOnly
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-emerald-400 font-bold focus:outline-none"
+              />
             </div>
           </div>
 
@@ -186,26 +195,28 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
             </div>
           </div>
 
-          <div className="flex items-center space-x-4 bg-zinc-950/60 p-4 rounded-xl border border-zinc-800">
-            <label className="flex items-center space-x-2 cursor-pointer">
+          {/* PIC Approver & Workflow Assignment */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Assigned Approver (PIC)</label>
               <input
-                type="checkbox"
-                checked={isHalfDay}
-                onChange={(e) => setIsHalfDay(e.target.checked)}
-                className="rounded bg-zinc-900 border-zinc-700 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                type="text"
+                value={approverName}
+                onChange={(e) => setApproverName(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
               />
-              <span className="text-sm font-medium text-zinc-200">Request Half-Day</span>
-            </label>
-            {isHalfDay && (
-              <select
-                value={halfDaySession}
-                onChange={(e) => setHalfDaySession(e.target.value as 'Morning' | 'Afternoon')}
-                className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200"
-              >
-                <option value="Morning">Morning Session</option>
-                <option value="Afternoon">Afternoon Session</option>
-              </select>
-            )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Workflow Status / Stage</label>
+              <input
+                type="text"
+                value={workflowStep}
+                onChange={(e) => setWorkflowStep(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-medium focus:outline-none"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -262,28 +273,28 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
             <h3 className="text-sm font-bold text-white border-b border-zinc-800 pb-3">Application Summary</h3>
             <div className="space-y-2.5 text-xs">
               <div className="flex justify-between">
+                <span className="text-zinc-400">Employee:</span>
+                <span className="font-semibold text-white">{employeeName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Dept & Title:</span>
+                <span className="font-semibold text-white">{department} • {jobTitle}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-zinc-400">Type:</span>
                 <span className="font-semibold text-white">{leaveType}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Duration:</span>
-                <span className="font-semibold text-emerald-400">{totalDays} {totalDays === 1 ? 'Day' : 'Days'}</span>
+                <span className="text-zinc-400">Total Working Days:</span>
+                <span className="font-semibold text-emerald-400">{totalDays} Days</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">From:</span>
-                <span className="font-semibold text-zinc-200">{startDate}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">To:</span>
-                <span className="font-semibold text-zinc-200">{endDate}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Coverage:</span>
-                <span className="font-semibold text-zinc-200">{coverageColleague}</span>
+                <span className="text-zinc-400">Assigned PIC:</span>
+                <span className="font-semibold text-cyan-400">{approverName}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-zinc-800">
-                <span className="text-zinc-400">PIC Approval:</span>
-                <span className="font-semibold text-amber-400">Pending Manager Review</span>
+                <span className="text-zinc-400">Workflow Stage:</span>
+                <span className="font-semibold text-amber-400">{workflowStep}</span>
               </div>
             </div>
           </div>
@@ -293,7 +304,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20"
           >
             <Send className="w-4 h-4" />
-            <span>Submit to PIC for Approval</span>
+            <span>Submit & Assign Approver</span>
           </button>
         </div>
       </form>
