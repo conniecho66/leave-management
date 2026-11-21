@@ -20,7 +20,6 @@ export default function App() {
   const [currentModel, setCurrentModel] = useState<ModelName>('gemini-4-hydrogen');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>('HIGH');
 
-  // Clean leave quotas: 0 used, 0 pending
   const [balances, setBalances] = useState<LeaveBalance[]>([
     { leaveType: 'Annual Leave', total: 20, used: 0, pending: 0 },
     { leaveType: 'Sick Leave', total: 14, used: 0, pending: 0 },
@@ -29,7 +28,6 @@ export default function App() {
     { leaveType: 'Study Leave', total: 10, used: 0, pending: 0 },
   ]);
 
-  // Switch storage key to purge old mock data from browser localStorage
   const STORAGE_KEY = 'taichong_leave_requests_v2';
 
   const [requests, setRequests] = useState<LeaveRequest[]>(() => {
@@ -37,7 +35,7 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return []; // Start completely empty: no fake initial requests
+    return [];
   });
 
   useEffect(() => {
@@ -101,22 +99,31 @@ export default function App() {
 
   const pendingCount = requests.filter((r) => r.status === 'Pending').length;
 
+  const isVerifiedAdmin = currentUser
+    ? ADMIN_IDENTIFIERS.some(
+        (id) =>
+          id.toLowerCase() === currentUser.identifier.toLowerCase() ||
+          id.toLowerCase() === currentUser.name.toLowerCase()
+      )
+    : false;
+
   if (!isAuthenticated) {
     return (
       <AuthPage
         onLoginSuccess={(userData) => {
           setCurrentUser(userData);
           setIsAuthenticated(true);
-          // Automatically assign user role based on ADMIN_IDENTIFIERS
           const isAdminOrManager = ADMIN_IDENTIFIERS.some(
-            (id) => id.toLowerCase() === userData.identifier.toLowerCase() || id.toLowerCase() === userData.name.toLowerCase()
+            (id) =>
+              id.toLowerCase() === userData.identifier.toLowerCase() ||
+              id.toLowerCase() === userData.name.toLowerCase()
           );
           if (isAdminOrManager) {
             setUserRole('manager');
             setActiveTab('dashboard');
           } else {
             setUserRole('employee');
-            setActiveTab('apply'); // Employees start directly on Apply Leave
+            setActiveTab('apply');
           }
         }}
       />
@@ -135,37 +142,43 @@ export default function App() {
               TAICHONG AUTOMATION / ENGINEERING
             </h1>
             <p className="text-[10px] text-zinc-400 font-medium">
-              LeaveFlow Pro • Welcome, <span className="text-emerald-400 font-bold">{currentUser?.name || 'User'}</span> ({userRole})
+              LeaveFlow Pro • Welcome, <span className="text-emerald-400 font-bold">{currentUser?.name || 'User'}</span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-4 shrink-0">
-          {/* Role Switcher */}
-          <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-xs">
-            <span className="text-zinc-500 px-2 font-medium">Role:</span>
-            <button
-              onClick={() => { setUserRole('employee'); setActiveTab('apply'); }}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-                userRole === 'employee' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+          {/* Role Switcher (Restricted to ADMIN_IDENTIFIERS) */}
+          {isVerifiedAdmin ? (
+            <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-xs">
+              <span className="text-zinc-500 px-2 font-medium">Role:</span>
+              <button
+                onClick={() => { setUserRole('employee'); setActiveTab('apply'); }}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  userRole === 'employee' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Employee
+              </button>
+              <button
+                onClick={() => { setUserRole('manager'); setActiveTab('dashboard'); }}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors relative ${
+                  userRole === 'manager' || userRole === 'admin' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Manager / Admin
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          ) : (
+            <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md text-xs font-semibold">
               Employee
-            </button>
-            <button
-              onClick={() => { setUserRole('manager'); setActiveTab('dashboard'); }}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors relative ${
-                userRole === 'manager' || userRole === 'admin' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Manager / Admin
-              {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          </div>
+            </span>
+          )}
 
           <button
             onClick={() => {
@@ -183,12 +196,12 @@ export default function App() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          userRole={userRole}
+          userRole={isVerifiedAdmin ? userRole : 'employee'}
           pendingCount={pendingCount}
         />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">
-          {activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' && isVerifiedAdmin && (
             <Dashboard
               balances={balances}
               requests={requests}
@@ -210,7 +223,7 @@ export default function App() {
               onCancelRequest={handleCancelRequest}
             />
           )}
-          {activeTab === 'approvals' && (
+          {activeTab === 'approvals' && isVerifiedAdmin && (
             <TeamApprovals
               requests={requests}
               onUpdateStatus={handleUpdateStatus}
@@ -219,7 +232,7 @@ export default function App() {
           {activeTab === 'calendar' && (
             <TeamCalendar requests={requests} />
           )}
-          {activeTab === 'payroll' && (
+          {activeTab === 'payroll' && isVerifiedAdmin && (
             <PayrollSync
               requests={requests}
               currentModel={currentModel}
@@ -238,12 +251,12 @@ export default function App() {
       {/* Mobile Bottom Navigation */}
       <nav aria-label="Mobile Navigation" className="md:hidden border-t border-zinc-800 bg-zinc-950 px-2 py-2 flex items-center justify-around shrink-0 text-[11px]">
         {[
-          ...(userRole === 'manager' || userRole === 'admin' ? [{ id: 'dashboard', label: 'Home' }] : []),
+          ...(isVerifiedAdmin ? [{ id: 'dashboard', label: 'Home' }] : []),
           { id: 'apply', label: 'Apply' },
           { id: 'my-requests', label: 'My Requests' },
-          ...(userRole === 'manager' || userRole === 'admin' ? [{ id: 'approvals', label: 'Approvals' }] : []),
+          ...(isVerifiedAdmin ? [{ id: 'approvals', label: 'Approvals' }] : []),
           { id: 'calendar', label: 'Calendar' },
-          { id: 'payroll', label: 'Payroll' },
+          ...(isVerifiedAdmin ? [{ id: 'payroll', label: 'Payroll' }] : []),
           { id: 'ai-assistant', label: 'AI HR' },
         ].map((tab) => (
           <button

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2, UserCheck } from 'lucide-react';
+import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2, UserCheck, Upload, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { LeaveType, LeaveRequest, ActiveTab, ModelName, ThinkingLevelOption, DIRECT_SUPERVISORS } from '../types';
 
 interface ApplyLeaveProps {
@@ -26,6 +26,8 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
   const [coverageColleague, setCoverageColleague] = useState('');
 
   const [aiLoading, setAiLoading] = useState(false);
+  const [docLoading, setDocLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
   // Dynamic working days calculation
   const calculateDays = () => {
@@ -41,6 +43,55 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
 
   // Dynamic workflow step
   const workflowStep = totalDays > 3 ? 'Tier 2: Plant Operations Manager Sign-off (Multi-Tier)' : 'Tier 1: Line Supervisor Review (Single-Tier)';
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setDocLoading(true);
+    setAnalysisResult(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await fetch('/api/ai/analyze-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            base64Data,
+            mimeType: file.type || 'application/octet-stream',
+            fileName: file.name,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.analysis) {
+          setAnalysisResult(data.analysis);
+        } else {
+          alert('Document analysis returned no structured data.');
+        }
+      } catch (err: any) {
+        alert('Failed to analyze document: ' + err.message);
+      } finally {
+        setDocLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAutoFill = () => {
+    if (!analysisResult) return;
+    if (analysisResult.startDate) setStartDate(analysisResult.startDate);
+    if (analysisResult.endDate) setEndDate(analysisResult.endDate);
+    if (analysisResult.reasonOrDiagnosis) {
+      setReason(analysisResult.reasonOrDiagnosis);
+    }
+    if (analysisResult.documentType?.toLowerCase().includes('mc') || analysisResult.documentType?.toLowerCase().includes('medical')) {
+      setLeaveType('Sick Leave');
+    }
+    alert('Form successfully auto-filled from document analysis!');
+  };
 
   const handleGenerateAiHandover = async () => {
     if (!reason.trim()) {
@@ -111,13 +162,74 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
         </div>
         <div>
           <h2 className="text-lg font-bold text-white">Apply for Leave</h2>
-          <p className="text-xs text-zinc-400">Submit your leave application with dynamic working days and Multi-PIC workflow</p>
+          <p className="text-xs text-zinc-400">Submit your leave application with multimodal AI document auditing</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Form Fields */}
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl space-y-5">
+          {/* Multimodal File Upload / Dropzone */}
+          <div className="p-4 bg-zinc-950 border border-dashed border-zinc-700 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-300">
+                <Upload className="w-4 h-4 text-emerald-400" />
+                <span>Multimodal Document Analyzer (MC / Tickets / Notes)</span>
+              </div>
+              {docLoading && (
+                <div className="flex items-center space-x-1.5 text-xs text-emerald-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Analyzing document with Gemini...</span>
+                </div>
+              )}
+            </div>
+            <input
+              type="file"
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+              onChange={handleFileUpload}
+              className="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer"
+            />
+
+            {/* Analysis Summary Card */}
+            {analysisResult && (
+              <div className="mt-4 p-4 rounded-xl bg-zinc-900 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                  <div className="flex items-center space-x-2">
+                    {analysisResult.isValid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    )}
+                    <span className="text-xs font-bold text-white">
+                      AI Audit Result: {analysisResult.documentType || 'Document'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoFill}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition-colors"
+                  >
+                    Auto-fill Form / 自动填表
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300">
+                  <div><span className="text-zinc-500">Issuer / Clinic:</span> {analysisResult.issuerOrClinic || 'N/A'}</div>
+                  <div><span className="text-zinc-500">Validity:</span> <span className={analysisResult.isValid ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{analysisResult.isValid ? 'Valid / 有效' : 'Review Required'}</span></div>
+                  <div><span className="text-zinc-500">Extracted Dates:</span> {analysisResult.startDate || 'N/A'} to {analysisResult.endDate || 'N/A'}</div>
+                  <div><span className="text-zinc-500">Total Days:</span> {analysisResult.totalDays || totalDays}</div>
+                </div>
+
+                {analysisResult.reasonOrDiagnosis && (
+                  <div className="text-xs text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
+                    <span className="text-zinc-500 font-semibold block mb-0.5">Diagnosis / Reason:</span>
+                    {analysisResult.reasonOrDiagnosis}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Employee Name</label>

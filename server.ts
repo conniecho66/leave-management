@@ -34,7 +34,7 @@ async function startServer() {
   // API Routes
   app.post('/api/ai/generate', async (req, res) => {
     try {
-      const { prompt, model = 'gemini-4-hydrogen', systemInstruction, thinkingLevel, responseSchema } = req.body;
+      const { prompt, model = 'gemini-2.5-flash', systemInstruction, thinkingLevel, responseSchema } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
@@ -51,7 +51,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: model || 'gemini-4-hydrogen',
+        model: model || 'gemini-2.5-flash',
         contents: prompt,
         config: Object.keys(config).length > 0 ? config : undefined,
       });
@@ -66,7 +66,7 @@ async function startServer() {
   // Streaming endpoint
   app.post('/api/ai/stream', async (req, res) => {
     try {
-      const { prompt, model = 'gemini-4-hydrogen', systemInstruction, thinkingLevel } = req.body;
+      const { prompt, model = 'gemini-2.5-flash', systemInstruction, thinkingLevel } = req.body;
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
       }
@@ -82,7 +82,7 @@ async function startServer() {
       }
 
       const streamResponse = await ai.models.generateContentStream({
-        model: model || 'gemini-4-hydrogen',
+        model: model || 'gemini-2.5-flash',
         contents: prompt,
         config: Object.keys(config).length > 0 ? config : undefined,
       });
@@ -152,20 +152,19 @@ async function startServer() {
       }
       // 4. PDFs and Images (PDF, JPEG, PNG, WEBP, HEIC)
       else {
-        const filePart = {
-          inlineData: {
-            mimeType,
-            data: base64Clean,
+        contents = [
+          {
+            inlineData: {
+              mimeType,
+              data: base64Clean,
+            },
           },
-        };
-        const textPart = {
-          text: prompt,
-        };
-        contents = { parts: [filePart, textPart] };
+          prompt,
+        ];
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+        model: 'gemini-2.5-flash',
         contents,
         config: {
           systemInstruction: 'You are an Enterprise HR Document Auditor and Medical Certificate (MC) verification specialist for TAICHONG AUTOMATION / ENGINEERING. Extract structured JSON details such as document type, employee name, start date, end date, reason/diagnosis, and verification validity.',

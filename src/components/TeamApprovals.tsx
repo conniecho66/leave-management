@@ -69,12 +69,12 @@ export const TeamApprovals: React.FC<TeamApprovalsProps> = ({ requests, onUpdate
                       <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Assigned Approver (PIC):</span>
                     </span>
-                    <span className="font-semibold text-white">{r.approverName || 'Marcus Vance (Manufacturing Supervisor)'}</span>
+                    <span className="font-semibold text-white">{r.approverName || r.directSupervisor || 'Direct Supervisor'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500">Workflow Status:</span>
                     <span className="font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      {r.workflowStep || 'Level 1: Line Supervisor Review'}
+                      {r.workflowStep || 'Tier 1: Line Supervisor Review'}
                     </span>
                   </div>
                 </div>

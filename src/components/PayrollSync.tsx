@@ -14,31 +14,31 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
   const [aiAudit, setAiAudit] = useState('');
   const [auditLoading, setAuditLoading] = useState(false);
 
-  // Calculate payroll records based on approved unpaid leaves or deductions
-  const employeeSalaries: { [key: string]: number } = {
-    'Alex Morgan': 8500,
-    'Jordan Lee': 7200,
-    'Sarah Jenkins': 9100,
-    'David Chen': 7800,
-  };
+  // Derive payroll records dynamically from approved Unpaid Leave requests
+  const approvedUnpaidLeaves = requests.filter(
+    (r) => r.leaveType === 'Unpaid Leave' && r.status === 'Approved'
+  );
 
-  const payrollRecords: PayrollRecord[] = Object.entries(employeeSalaries).map(([name, baseSalary]) => {
-    // Find approved unpaid leaves for this employee
-    const unpaidLeaves = requests.filter(
-      (r) => r.employeeName === name && r.leaveType === 'Unpaid Leave' && r.status === 'Approved'
-    );
-    const unpaidDays = unpaidLeaves.reduce((acc, curr) => acc + curr.totalDays, 0);
+  // Group by employeeName
+  const employeeMap: { [name: string]: { department: string; unpaidDays: number } } = {};
+  approvedUnpaidLeaves.forEach((r) => {
+    if (!employeeMap[r.employeeName]) {
+      employeeMap[r.employeeName] = { department: r.department, unpaidDays: 0 };
+    }
+    employeeMap[r.employeeName].unpaidDays += r.totalDays;
+  });
 
-    // Assume 22 working days in a month
+  const payrollRecords: PayrollRecord[] = Object.entries(employeeMap).map(([name, info]) => {
+    const baseSalary = 5000; // Standard base salary for simulation
     const dailyRate = baseSalary / 22;
-    const deduction = Math.round(unpaidDays * dailyRate * 100) / 100;
+    const deduction = Math.round(info.unpaidDays * dailyRate * 100) / 100;
     const net = Math.round((baseSalary - deduction) * 100) / 100;
 
     return {
       employeeName: name,
-      department: name === 'Alex Morgan' ? 'Engineering' : name === 'Jordan Lee' ? 'Product' : 'Marketing',
+      department: info.department,
       baseMonthlySalary: baseSalary,
-      unpaidLeaveDays: unpaidDays,
+      unpaidLeaveDays: info.unpaidDays,
       deductionAmount: deduction,
       netPayable: net,
       syncStatus: synced ? 'Synced' : 'Pending Sync',
@@ -50,11 +50,16 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
     setTimeout(() => {
       setSyncing(false);
       setSynced(true);
-      alert('Payroll successfully synced with leave management records!');
+      alert('Payroll successfully synced with approved unpaid leave records!');
     }, 1200);
   };
 
   const handleRunAiAudit = async () => {
+    if (payrollRecords.length === 0) {
+      alert('No unpaid leave records to audit.');
+      return;
+    }
+
     setAuditLoading(true);
     setAiAudit('');
 
@@ -63,7 +68,7 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
         .map((p) => `${p.employeeName}: Base $${p.baseMonthlySalary}, Unpaid Days: ${p.unpaidLeaveDays}, Deduction: $${p.deductionAmount}`)
         .join('\n');
 
-      const prompt = `Review the following payroll and leave deduction summary for compliance, anomalies, and recommendations:\n\n${summary}`;
+      const prompt = `Review the following dynamic payroll and leave deduction summary for compliance and reconciliation:\n\n${summary}`;
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,6 +92,10 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
   };
 
   const exportPayrollCsv = () => {
+    if (payrollRecords.length === 0) {
+      alert('No payroll deduction records to export.');
+      return;
+    }
     const headers = 'Employee,Department,Base Salary,Unpaid Days,Deduction,Net Payable,Status\n';
     const rows = payrollRecords
       .map((p) => `"${p.employeeName}","${p.department}",${p.baseMonthlySalary},${p.unpaidLeaveDays},${p.deductionAmount},${p.netPayable},"${p.syncStatus}"`)
@@ -118,14 +127,15 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
         <div className="flex items-center space-x-3">
           <button
             onClick={exportPayrollCsv}
-            className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-200 font-medium transition-colors"
+            disabled={payrollRecords.length === 0}
+            className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 border border-zinc-800 text-xs text-zinc-200 font-medium transition-colors"
           >
             <Download className="w-4 h-4 text-emerald-400" />
             <span>Export Payroll CSV</span>
           </button>
           <button
             onClick={handleSyncToPayroll}
-            disabled={syncing}
+            disabled={syncing || payrollRecords.length === 0}
             className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs text-white font-semibold shadow-lg shadow-emerald-600/20 transition-colors"
           >
             {syncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -142,46 +152,52 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-400 uppercase font-semibold border-b border-zinc-800 text-[11px]">
-              <tr>
-                <th className="p-4">Employee</th>
-                <th className="p-4">Department</th>
-                <th className="p-4">Base Salary</th>
-                <th className="p-4">Unpaid Leave</th>
-                <th className="p-4">Leave Deduction</th>
-                <th className="p-4">Net Payable</th>
-                <th className="p-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/80">
-              {payrollRecords.map((p, idx) => (
-                <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
-                  <td className="p-4 font-bold text-white">{p.employeeName}</td>
-                  <td className="p-4 text-zinc-400">{p.department}</td>
-                  <td className="p-4 text-zinc-300">${p.baseMonthlySalary.toLocaleString()}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-0.5 rounded font-medium ${p.unpaidLeaveDays > 0 ? 'bg-amber-500/20 text-amber-300' : 'text-zinc-500'}`}>
-                      {p.unpaidLeaveDays} days
-                    </span>
-                  </td>
-                  <td className="p-4 text-rose-400 font-medium">-${p.deductionAmount.toLocaleString()}</td>
-                  <td className="p-4 font-bold text-emerald-400">${p.netPayable.toLocaleString()}</td>
-                  <td className="p-4">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
-                        p.syncStatus === 'Synced'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                      }`}
-                    >
-                      {p.syncStatus}
-                    </span>
-                  </td>
+          {payrollRecords.length === 0 ? (
+            <div className="p-12 text-center text-zinc-500 text-xs">
+              No unpaid leave deductions recorded for this cycle.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs text-zinc-300">
+              <thead className="bg-zinc-950 text-zinc-400 uppercase font-semibold border-b border-zinc-800 text-[11px]">
+                <tr>
+                  <th className="p-4">Employee</th>
+                  <th className="p-4">Department</th>
+                  <th className="p-4">Base Salary</th>
+                  <th className="p-4">Unpaid Leave</th>
+                  <th className="p-4">Leave Deduction</th>
+                  <th className="p-4">Net Payable</th>
+                  <th className="p-4">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/80">
+                {payrollRecords.map((p, idx) => (
+                  <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
+                    <td className="p-4 font-bold text-white">{p.employeeName}</td>
+                    <td className="p-4 text-zinc-400">{p.department}</td>
+                    <td className="p-4 text-zinc-300">${p.baseMonthlySalary.toLocaleString()}</td>
+                    <td className="p-4">
+                      <span className="px-2 py-0.5 rounded font-medium bg-amber-500/20 text-amber-300">
+                        {p.unpaidLeaveDays} days
+                      </span>
+                    </td>
+                    <td className="p-4 text-rose-400 font-medium">-${p.deductionAmount.toLocaleString()}</td>
+                    <td className="p-4 font-bold text-emerald-400">${p.netPayable.toLocaleString()}</td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
+                          p.syncStatus === 'Synced'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        }`}
+                      >
+                        {p.syncStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -194,8 +210,8 @@ export const PayrollSync: React.FC<PayrollSyncProps> = ({ requests, currentModel
           </div>
           <button
             onClick={handleRunAiAudit}
-            disabled={auditLoading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors"
+            disabled={auditLoading || payrollRecords.length === 0}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
           >
             {auditLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             <span>Run AI Audit</span>
