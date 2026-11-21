@@ -1,6 +1,18 @@
 export type ActiveTab = 'dashboard' | 'apply' | 'my-requests' | 'approvals' | 'calendar' | 'ai-assistant' | 'payroll';
 
-export type UserRole = 'employee' | 'manager' | 'hr';
+export type UserRole = 'employee' | 'manager' | 'admin';
+
+// Authorized accounts with Manager / Admin approval privileges
+export const ADMIN_IDENTIFIERS = [
+  'admin',
+  'hr@taichong.com',
+  'connie.cho@company.com',
+  'SSCho',
+  'CYCho',
+  'CCCho',
+  'Connie Cho',
+  'Ana Cho',
+];
 
 export type LeaveType = 'Annual Leave' | 'Sick Leave' | 'Parental Leave' | 'Unpaid Leave' | 'Compassionate Leave' | 'Study Leave';
 

@@ -9,7 +9,7 @@ import { TeamApprovals } from './components/TeamApprovals';
 import { TeamCalendar } from './components/TeamCalendar';
 import { PayrollSync } from './components/PayrollSync';
 import { AiHrAssistant } from './components/AiHrAssistant';
-import { ActiveTab, UserRole, LeaveRequest, LeaveBalance, ModelName, ThinkingLevelOption } from './types';
+import { ActiveTab, UserRole, LeaveRequest, LeaveBalance, ModelName, ThinkingLevelOption, ADMIN_IDENTIFIERS } from './types';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -124,6 +124,15 @@ export default function App() {
         onLoginSuccess={(userData) => {
           setCurrentUser(userData);
           setIsAuthenticated(true);
+          // Automatically assign user role based on ADMIN_IDENTIFIERS
+          const isAdminOrManager = ADMIN_IDENTIFIERS.some(
+            (id) => id.toLowerCase() === userData.identifier.toLowerCase() || id.toLowerCase() === userData.name.toLowerCase()
+          );
+          if (isAdminOrManager) {
+            setUserRole('manager');
+          } else {
+            setUserRole('employee');
+          }
         }}
       />
     );
@@ -141,7 +150,7 @@ export default function App() {
               TAICHONG AUTOMATION / ENGINEERING
             </h1>
             <p className="text-[10px] text-zinc-400 font-medium">
-              LeaveFlow Pro • Welcome, <span className="text-emerald-400 font-bold">{currentUser?.name || 'User'}</span>
+              LeaveFlow Pro • Welcome, <span className="text-emerald-400 font-bold">{currentUser?.name || 'User'}</span> ({userRole})
             </p>
           </div>
         </div>
@@ -161,10 +170,10 @@ export default function App() {
             <button
               onClick={() => setUserRole('manager')}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors relative ${
-                userRole === 'manager' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+                userRole === 'manager' || userRole === 'admin' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Manager / HR
+              Manager / Admin
               {pendingCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
                   {pendingCount}
@@ -247,7 +256,7 @@ export default function App() {
           { id: 'dashboard', label: 'Home' },
           { id: 'apply', label: 'Apply' },
           { id: 'my-requests', label: 'My Requests' },
-          ...(userRole === 'manager' ? [{ id: 'approvals', label: 'Approvals' }] : []),
+          ...(userRole === 'manager' || userRole === 'admin' ? [{ id: 'approvals', label: 'Approvals' }] : []),
           { id: 'calendar', label: 'Calendar' },
           { id: 'payroll', label: 'Payroll' },
           { id: 'ai-assistant', label: 'AI HR' },

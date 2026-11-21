@@ -14,7 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userR
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview & balances' },
     { id: 'apply', label: 'Apply Leave', icon: PlusCircle, desc: 'Submit new request' },
     { id: 'my-requests', label: 'My Requests', icon: FileText, desc: 'Track leave status' },
-    ...(userRole === 'manager' || userRole === 'hr'
+    ...(userRole === 'manager' || userRole === 'admin'
       ? [{ id: 'approvals', label: 'Team Approvals', icon: CheckSquare, desc: 'Approve or reject', badge: pendingCount }]
       : []),
     { id: 'calendar', label: 'Team Calendar', icon: Calendar, desc: 'Schedule & timeline' },
