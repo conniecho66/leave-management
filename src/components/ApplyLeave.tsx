@@ -25,9 +25,12 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
   const [handoverNotes, setHandoverNotes] = useState('');
   const [coverageColleague, setCoverageColleague] = useState('');
 
-  const [aiLoading, setAiLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [docLoading, setDocLoading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Dynamic working days calculation
   const calculateDays = () => {
@@ -44,50 +47,79 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
   // Dynamic workflow step
   const workflowStep = totalDays > 3 ? 'Tier 2: Plant Operations Manager Sign-off (Multi-Tier)' : 'Tier 1: Line Supervisor Review (Single-Tier)';
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
+    setAnalysisResult(null);
+    setDocError(null);
+  };
+
+  const handleStartAnalysis = async () => {
+    if (!selectedFile) return;
 
     setDocLoading(true);
+    setDocError(null);
     setAnalysisResult(null);
 
     const reader = new FileReader();
     reader.onerror = () => {
-      alert('Failed to read file.');
+      setDocError('Failed to read file from local storage/device.');
       setDocLoading(false);
     };
     reader.onload = async () => {
       try {
         const base64Data = reader.result as string;
+        let effectiveMime = selectedFile.type;
+        const lowerName = (selectedFile.name || '').toLowerCase();
+        if (!effectiveMime || effectiveMime === 'application/octet-stream') {
+          if (lowerName.endsWith('.pdf')) effectiveMime = 'application/pdf';
+          else if (lowerName.endsWith('.png')) effectiveMime = 'image/png';
+          else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) effectiveMime = 'image/jpeg';
+          else if (lowerName.endsWith('.webp')) effectiveMime = 'image/webp';
+          else if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) effectiveMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          else if (lowerName.endsWith('.docx') || lowerName.endsWith('.doc')) effectiveMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (lowerName.endsWith('.csv')) effectiveMime = 'text/csv';
+          else if (lowerName.endsWith('.txt')) effectiveMime = 'text/plain';
+          else effectiveMime = 'application/octet-stream';
+        }
+
         const res = await fetch('/api/ai/analyze-document', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             base64Data,
-            mimeType: file.type || 'application/octet-stream',
-            fileName: file.name,
+            mimeType: effectiveMime,
+            fileName: selectedFile.name,
+            prompt: 'Analyze this supporting document for leave application. Extract document type, employee/passenger name, issuer/clinic/airline, start date, end date, total days, reason or diagnosis or itinerary purpose, and validity.',
           }),
         });
 
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Server error during document analysis.');
+        }
+
         if (data.analysis) {
           setAnalysisResult(data.analysis);
         } else {
-          alert('Document analysis returned no structured data.');
+          setDocError('Document analysis returned no structured data.');
         }
       } catch (err: any) {
-        alert('Failed to analyze document: ' + err.message);
+        setDocError(err.message || 'Failed to analyze document.');
       } finally {
         setDocLoading(false);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(selectedFile);
   };
 
   const handleAutoFill = () => {
     if (!analysisResult) return;
     if (analysisResult.startDate) setStartDate(analysisResult.startDate);
     if (analysisResult.endDate) setEndDate(analysisResult.endDate);
+    if (analysisResult.employeeName && !employeeName) {
+      setEmployeeName(analysisResult.employeeName);
+    }
     if (analysisResult.reasonOrDiagnosis) {
       setReason(analysisResult.reasonOrDiagnosis);
     }
@@ -95,6 +127,8 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
     const diagnosisLower = (analysisResult.reasonOrDiagnosis || '').toLowerCase();
     if (docTypeLower.includes('mc') || docTypeLower.includes('medical') || docTypeLower.includes('sick') || diagnosisLower.includes('fever') || diagnosisLower.includes('rest') || diagnosisLower.includes('illness')) {
       setLeaveType('Sick Leave');
+    } else if (docTypeLower.includes('ticket') || docTypeLower.includes('receipt') || docTypeLower.includes('flight') || docTypeLower.includes('itinerary')) {
+      setLeaveType('Annual Leave');
     }
     alert('Form successfully auto-filled from document analysis!');
   };
@@ -175,26 +209,52 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Form Fields */}
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl space-y-5">
-          {/* Multimodal File Upload / Dropzone */}
+          {/* Multimodal File Upload & Analysis Section */}
           <div className="p-4 bg-zinc-950 border border-dashed border-zinc-700 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-300">
                 <Upload className="w-4 h-4 text-emerald-400" />
                 <span>Multimodal Document Analyzer (MC / Tickets / Notes)</span>
               </div>
-              {docLoading && (
-                <div className="flex items-center space-x-1.5 text-xs text-emerald-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Analyzing document with Gemini...</span>
-                </div>
-              )}
             </div>
-            <input
-              type="file"
-              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-              onChange={handleFileUpload}
-              className="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer"
-            />
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input
+                type="file"
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                onChange={handleFileSelect}
+                className="flex-1 text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700 cursor-pointer"
+              />
+              <button
+                type="button"
+                onClick={handleStartAnalysis}
+                disabled={!selectedFile || docLoading}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center justify-center space-x-2 shadow transition-colors"
+              >
+                {docLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Analyze Document / 智能分析</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {selectedFile && !docLoading && !analysisResult && !docError && (
+              <p className="text-xs text-zinc-400">Selected file: <span className="text-zinc-200 font-medium">{selectedFile.name}</span>. Click "Analyze Document / 智能分析" to process with Gemini.</p>
+            )}
+
+            {docError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{docError}</span>
+              </div>
+            )}
 
             {/* Analysis Summary Card */}
             {analysisResult && (
@@ -220,15 +280,18 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300">
-                  <div><span className="text-zinc-500">Issuer / Clinic:</span> {analysisResult.issuerOrClinic || 'N/A'}</div>
+                  <div><span className="text-zinc-500">Issuer / Clinic / Airline:</span> {analysisResult.issuerOrClinic || 'N/A'}</div>
                   <div><span className="text-zinc-500">Validity:</span> <span className={analysisResult.isValid ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{analysisResult.isValid ? 'Valid / 有效' : 'Review Required'}</span></div>
                   <div><span className="text-zinc-500">Extracted Dates:</span> {analysisResult.startDate || 'N/A'} to {analysisResult.endDate || 'N/A'}</div>
                   <div><span className="text-zinc-500">Total Days:</span> {analysisResult.totalDays || totalDays}</div>
+                  {analysisResult.employeeName && (
+                    <div className="col-span-2"><span className="text-zinc-500">Extracted Name:</span> <span className="text-white font-medium">{analysisResult.employeeName}</span></div>
+                  )}
                 </div>
 
                 {analysisResult.reasonOrDiagnosis && (
                   <div className="text-xs text-zinc-300 bg-zinc-950 p-2.5 rounded-lg border border-zinc-800">
-                    <span className="text-zinc-500 font-semibold block mb-0.5">Diagnosis / Reason:</span>
+                    <span className="text-zinc-500 font-semibold block mb-0.5">Diagnosis / Purpose Summary:</span>
                     {analysisResult.reasonOrDiagnosis}
                   </div>
                 )}

@@ -105,21 +105,32 @@ async function startServer() {
     try {
       const { base64Data, mimeType, fileName, prompt = 'Extract document type, employee name, leave dates, diagnosis/reason, and key audit verification details.' } = req.body;
 
-      if (!base64Data || !mimeType) {
-        return res.status(400).json({ error: 'base64Data and mimeType are required' });
+      if (!base64Data) {
+        return res.status(400).json({ error: 'base64Data is required' });
       }
 
       // Strip data uri prefix if present
       const base64Clean = base64Data.replace(/^data:[^;]+;base64,/, '');
       const buffer = Buffer.from(base64Clean, 'base64');
 
-      let contents: any = null;
+      let effectiveMime = mimeType;
       const lowerName = (fileName || '').toLowerCase();
+      if (!effectiveMime || effectiveMime === 'application/octet-stream' || effectiveMime === '') {
+        if (lowerName.endsWith('.pdf')) effectiveMime = 'application/pdf';
+        else if (lowerName.endsWith('.png')) effectiveMime = 'image/png';
+        else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) effectiveMime = 'image/jpeg';
+        else if (lowerName.endsWith('.webp')) effectiveMime = 'image/webp';
+        else if (lowerName.endsWith('.docx')) effectiveMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        else if (lowerName.endsWith('.xlsx')) effectiveMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        else effectiveMime = 'application/pdf'; // fallback for pdf receipts
+      }
+
+      let contents: any = null;
 
       // 1. Excel files (.xlsx, .xls)
       if (
-        mimeType.includes('spreadsheetml') ||
-        mimeType.includes('excel') ||
+        effectiveMime.includes('spreadsheetml') ||
+        effectiveMime.includes('excel') ||
         lowerName.endsWith('.xlsx') ||
         lowerName.endsWith('.xls')
       ) {
@@ -134,7 +145,7 @@ async function startServer() {
       }
       // 2. Word documents (.docx)
       else if (
-        mimeType.includes('wordprocessingml') ||
+        effectiveMime.includes('wordprocessingml') ||
         lowerName.endsWith('.docx')
       ) {
         const result = await mammoth.extractRawText({ buffer });
@@ -142,24 +153,24 @@ async function startServer() {
       }
       // 3. Plain Text or CSV files
       else if (
-        mimeType.includes('text/plain') ||
-        mimeType.includes('text/csv') ||
+        effectiveMime.includes('text/plain') ||
+        effectiveMime.includes('text/csv') ||
         lowerName.endsWith('.txt') ||
         lowerName.endsWith('.csv')
       ) {
         const textContent = buffer.toString('utf-8');
         contents = `Analyze the following text file from ${fileName}:\n\n${textContent}\n\nTask: ${prompt}`;
       }
-      // 4. PDFs and Images (PDF, JPEG, PNG, WEBP, HEIC)
+      // 4. PDFs and Images (application/pdf, image/*)
       else {
         contents = [
           {
             inlineData: {
-              mimeType,
+              mimeType: effectiveMime,
               data: base64Clean,
             },
           },
-          prompt,
+          prompt || 'Analyze this document. Extract the leave period, purpose or itinerary, passenger/employee name, issuer, and validity.',
         ];
       }
 
@@ -167,18 +178,18 @@ async function startServer() {
         model: 'gemini-2.5-flash',
         contents,
         config: {
-          systemInstruction: 'You are an Enterprise HR Document Auditor and Medical Certificate (MC) verification specialist for TAICHONG AUTOMATION / ENGINEERING. Extract structured JSON details such as document type, employee name, start date, end date, reason/diagnosis, and verification validity.',
+          systemInstruction: 'You are an Enterprise HR Document Auditor for TAICHONG AUTOMATION / ENGINEERING. Inspect uploaded documents (flight tickets, e-receipts, medical certificates, hospitalization notes, official letters). Extract passenger/employee name, coverage dates, destination or diagnosis, issuer (airline, clinic, or travel agency), and determine validity.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              documentType: { type: Type.STRING, description: 'Type of document e.g. Medical Certificate, MC, Flight Ticket, Letter' },
-              employeeName: { type: Type.STRING, description: 'Employee name if found' },
-              startDate: { type: Type.STRING, description: 'Leave start date YYYY-MM-DD' },
-              endDate: { type: Type.STRING, description: 'Leave end date YYYY-MM-DD' },
-              totalDays: { type: Type.NUMBER, description: 'Number of leave days' },
-              reasonOrDiagnosis: { type: Type.STRING, description: 'Reason or medical diagnosis' },
-              issuerOrClinic: { type: Type.STRING, description: 'Clinic or issuer name' },
+              documentType: { type: Type.STRING, description: 'Type of document e.g. Flight Ticket / E-Ticket, Medical Certificate (MC), Travel Itinerary, Official Receipt' },
+              employeeName: { type: Type.STRING, description: 'Passenger or employee name if found' },
+              startDate: { type: Type.STRING, description: 'Leave or flight start date YYYY-MM-DD' },
+              endDate: { type: Type.STRING, description: 'Leave or flight end date YYYY-MM-DD' },
+              totalDays: { type: Type.NUMBER, description: 'Number of days' },
+              reasonOrDiagnosis: { type: Type.STRING, description: 'Reason, diagnosis, flight route, or booking details' },
+              issuerOrClinic: { type: Type.STRING, description: 'Airline, clinic, or issuer name' },
               isValid: { type: Type.BOOLEAN, description: 'Whether the document appears authentic and valid' },
               summary: { type: Type.STRING, description: 'Brief audit summary' },
             },
