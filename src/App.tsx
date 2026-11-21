@@ -17,7 +17,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [userRole, setUserRole] = useState<UserRole>('employee');
-  const [currentModel, setCurrentModel] = useState<ModelName>('gemini-4-hydrogen');
+  const [currentModel, setCurrentModel] = useState<ModelName>('gemini-3.8-flash');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>('HIGH');
 
   const [balances, setBalances] = useState<LeaveBalance[]>([

@@ -34,7 +34,7 @@ async function startServer() {
   // API Routes
   app.post('/api/ai/generate', async (req, res) => {
     try {
-      const { prompt, model = 'gemini-2.5-flash', systemInstruction, thinkingLevel, responseSchema } = req.body;
+      const { prompt, model = 'gemini-3.8-flash', systemInstruction, thinkingLevel, responseSchema } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
@@ -51,7 +51,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: model || 'gemini-2.5-flash',
+        model: model || 'gemini-3.8-flash',
         contents: prompt,
         config: Object.keys(config).length > 0 ? config : undefined,
       });
@@ -66,7 +66,7 @@ async function startServer() {
   // Streaming endpoint
   app.post('/api/ai/stream', async (req, res) => {
     try {
-      const { prompt, model = 'gemini-2.5-flash', systemInstruction, thinkingLevel } = req.body;
+      const { prompt, model = 'gemini-3.8-flash', systemInstruction, thinkingLevel } = req.body;
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
       }
@@ -82,7 +82,7 @@ async function startServer() {
       }
 
       const streamResponse = await ai.models.generateContentStream({
-        model: model || 'gemini-2.5-flash',
+        model: model || 'gemini-3.8-flash',
         contents: prompt,
         config: Object.keys(config).length > 0 ? config : undefined,
       });
@@ -175,7 +175,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents,
         config: {
           systemInstruction: 'You are an Enterprise HR Document Auditor for TAICHONG AUTOMATION / ENGINEERING. Inspect uploaded documents (flight tickets, e-receipts, medical certificates, hospitalization notes, official letters). Extract passenger/employee name, coverage dates, destination or diagnosis, issuer (airline, clinic, or travel agency), and determine validity.',

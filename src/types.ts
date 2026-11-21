@@ -67,7 +67,7 @@ export interface PayrollRecord {
 }
 
 // AI & Workspace utility types
-export type ModelName = 'gemini-4-hydrogen' | 'gemini-4-neon' | 'gemini-4-carbon' | 'gemini-3.1-flash-lite';
+export type ModelName = 'gemini-3.8-flash' | 'gemini-4-hydrogen' | 'gemini-4-neon' | 'gemini-4-carbon' | 'gemini-3.1-flash-lite';
 
 export type ThinkingLevelOption = 'LOW' | 'MEDIUM' | 'HIGH' | 'XHIGH';
 
