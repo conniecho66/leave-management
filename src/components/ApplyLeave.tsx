@@ -1,0 +1,302 @@
+import React, { useState } from 'react';
+import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2 } from 'lucide-react';
+import { LeaveType, LeaveRequest, ActiveTab, ModelName, ThinkingLevelOption } from '../types';
+
+interface ApplyLeaveProps {
+  onAddRequest: (request: Omit<LeaveRequest, 'id' | 'appliedAt' | 'status'>) => void;
+  setActiveTab: (tab: ActiveTab) => void;
+  currentModel: ModelName;
+  thinkingLevel: ThinkingLevelOption;
+}
+
+export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveTab, currentModel, thinkingLevel }) => {
+  const [employeeName, setEmployeeName] = useState('Alex Morgan');
+  const [employeeEmail, setEmployeeEmail] = useState('alex.morgan@company.com');
+  const [department, setDepartment] = useState('Engineering');
+  const [leaveType, setLeaveType] = useState<LeaveType>('Annual Leave');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]);
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDaySession, setHalfDaySession] = useState<'Morning' | 'Afternoon'>('Morning');
+  const [reason, setReason] = useState('');
+  const [handoverNotes, setHandoverNotes] = useState('');
+  const [coverageColleague, setCoverageColleague] = useState('Sarah Jenkins');
+  
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // Calculate working days approximation
+  const calculateDays = () => {
+    if (isHalfDay) return 0.5;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return isNaN(diffDays) ? 1 : Math.max(diffDays, 1);
+  };
+
+  const totalDays = calculateDays();
+
+  const handleGenerateAiHandover = async () => {
+    if (!reason.trim()) {
+      alert('Please enter a leave reason first so Gemini can generate a smart handover plan.');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const prompt = `Generate a professional leave handover plan and coverage checklist for a colleague (${coverageColleague}) during my ${totalDays}-day absence due to ${leaveType} (${reason}).`;
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          model: currentModel,
+          systemInstruction: 'You are an HR and operational assistant helping employees write clear handover notes.',
+          thinkingLevel,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.text) {
+        setHandoverNotes(data.text);
+      }
+    } catch (err: any) {
+      alert('Failed to generate AI handover plan: ' + err.message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employeeName || !startDate || !endDate || !reason) {
+      alert('Please fill out all required fields.');
+      return;
+    }
+
+    onAddRequest({
+      employeeName,
+      employeeEmail,
+      department,
+      leaveType,
+      startDate,
+      endDate,
+      totalDays,
+      isHalfDay,
+      halfDaySession: isHalfDay ? halfDaySession : undefined,
+      reason,
+      handoverNotes,
+      coverageColleague,
+    });
+
+    alert('Leave application submitted successfully and passed to PIC (Manager) for approval!');
+    setActiveTab('my-requests');
+  };
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-zinc-950 overflow-y-auto p-6 space-y-6">
+      <div className="flex items-center space-x-3 pb-4 border-b border-zinc-800">
+        <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+          <PlusCircle className="w-6 h-6" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">Apply for Leave</h2>
+          <p className="text-xs text-zinc-400">Submit your leave application for PIC (Manager) approval</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Form Fields */}
+        <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Employee Name</label>
+              <input
+                type="text"
+                value={employeeName}
+                onChange={(e) => setEmployeeName(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Email Address</label>
+              <input
+                type="email"
+                value={employeeEmail}
+                onChange={(e) => setEmployeeEmail(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Department</label>
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Engineering">Engineering</option>
+                <option value="Product">Product & Design</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Sales">Sales</option>
+                <option value="HR">Human Resources</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Leave Type</label>
+              <select
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Annual Leave">Annual Leave</option>
+                <option value="Sick Leave">Sick Leave</option>
+                <option value="Parental Leave">Parental Leave</option>
+                <option value="Unpaid Leave">Unpaid Leave</option>
+                <option value="Compassionate Leave">Compassionate Leave</option>
+                <option value="Study Leave">Study Leave</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-4 bg-zinc-950/60 p-4 rounded-xl border border-zinc-800">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isHalfDay}
+                onChange={(e) => setIsHalfDay(e.target.checked)}
+                className="rounded bg-zinc-900 border-zinc-700 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+              />
+              <span className="text-sm font-medium text-zinc-200">Request Half-Day</span>
+            </label>
+            {isHalfDay && (
+              <select
+                value={halfDaySession}
+                onChange={(e) => setHalfDaySession(e.target.value as 'Morning' | 'Afternoon')}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+              >
+                <option value="Morning">Morning Session</option>
+                <option value="Afternoon">Afternoon Session</option>
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Reason for Leave</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Provide brief details for your leave request..."
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Coverage Colleague</label>
+              <input
+                type="text"
+                value={coverageColleague}
+                onChange={(e) => setCoverageColleague(e.target.value)}
+                placeholder="Colleague covering your tasks"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-zinc-300">Handover Notes</label>
+              <button
+                type="button"
+                onClick={handleGenerateAiHandover}
+                disabled={aiLoading}
+                className="flex items-center space-x-1.5 text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-lg transition-colors font-medium"
+              >
+                {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <span>AI Handover Plan</span>
+              </button>
+            </div>
+            <textarea
+              value={handoverNotes}
+              onChange={(e) => setHandoverNotes(e.target.value)}
+              rows={4}
+              placeholder="Outline pending tasks and urgent items for your coverage colleague..."
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+            />
+          </div>
+        </div>
+
+        {/* Summary & Submission Sidebar */}
+        <div className="bg-zinc-900/60 border border-zinc-800 p-6 rounded-2xl flex flex-col justify-between space-y-6 h-fit">
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-white border-b border-zinc-800 pb-3">Application Summary</h3>
+            <div className="space-y-2.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Type:</span>
+                <span className="font-semibold text-white">{leaveType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Duration:</span>
+                <span className="font-semibold text-emerald-400">{totalDays} {totalDays === 1 ? 'Day' : 'Days'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">From:</span>
+                <span className="font-semibold text-zinc-200">{startDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">To:</span>
+                <span className="font-semibold text-zinc-200">{endDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Coverage:</span>
+                <span className="font-semibold text-zinc-200">{coverageColleague}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-zinc-800">
+                <span className="text-zinc-400">PIC Approval:</span>
+                <span className="font-semibold text-amber-400">Pending Manager Review</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20"
+          >
+            <Send className="w-4 h-4" />
+            <span>Submit to PIC for Approval</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
