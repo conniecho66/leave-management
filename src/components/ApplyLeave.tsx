@@ -52,6 +52,10 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
     setAnalysisResult(null);
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      alert('Failed to read file.');
+      setDocLoading(false);
+    };
     reader.onload = async () => {
       try {
         const base64Data = reader.result as string;
@@ -87,7 +91,9 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
     if (analysisResult.reasonOrDiagnosis) {
       setReason(analysisResult.reasonOrDiagnosis);
     }
-    if (analysisResult.documentType?.toLowerCase().includes('mc') || analysisResult.documentType?.toLowerCase().includes('medical')) {
+    const docTypeLower = (analysisResult.documentType || '').toLowerCase();
+    const diagnosisLower = (analysisResult.reasonOrDiagnosis || '').toLowerCase();
+    if (docTypeLower.includes('mc') || docTypeLower.includes('medical') || docTypeLower.includes('sick') || diagnosisLower.includes('fever') || diagnosisLower.includes('rest') || diagnosisLower.includes('illness')) {
       setLeaveType('Sick Leave');
     }
     alert('Form successfully auto-filled from document analysis!');
