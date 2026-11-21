@@ -9,7 +9,6 @@ import {
   EyeOff,
   Globe,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -20,7 +19,7 @@ type Language = 'en' | 'zh';
 type AuthMode = 'signin' | 'signup';
 
 const DEPARTMENTS = [
-  { value: 'TCE', labelEn: 'Tai Chong Enterprise (TCE)', labelZh: '泰崇企业总部 (TCE)' },
+  { value: 'TCE', labelEn: 'TAICHONG AUTOMATION / ENGINEERING', labelZh: '泰崇自动化 / 泰崇工程' },
   { value: 'Manufacturing', labelEn: 'Manufacturing & Stamping', labelZh: '生产与冲压部' },
   { value: 'QA', labelEn: 'Quality Assurance (QA/QC)', labelZh: '品质管理部' },
   { value: 'Tooling', labelEn: 'Tooling & Maintenance', labelZh: '模具与工务维护部' },
@@ -41,28 +40,28 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Sign In Form State
+  // Sign In Form State (Clean state)
   const [signInData, setSignInData] = useState({
-    identifier: 'TC-8821',
-    password: '••••••••',
-    rememberMe: true,
+    identifier: '',
+    password: '',
+    rememberMe: false,
   });
 
-  // Sign Up Form State
+  // Sign Up Form State (Clean state)
   const [signUpData, setSignUpData] = useState({
-    fullName: 'Connie Cho',
-    mobileNo: '+60 12-345 6789',
+    fullName: '',
+    mobileNo: '',
     password: '',
     confirmPassword: '',
     department: 'Manufacturing',
-    supervisor: 'CCCho',
+    supervisor: DIRECT_SUPERVISORS[0].value,
   });
 
   // Bilingual Dictionary
   const t = {
     en: {
-      portalTitle: 'Tai Chong Enterprise Leave Portal',
-      portalSubtitle: 'Enterprise Multi-PIC Workforce & Absence Management',
+      portalTitle: 'TAICHONG AUTOMATION SDN BHD / TAICHONG ENGINEERING & STEELWORKS SDN BHD',
+      portalSubtitle: 'Enterprise Multi-PIC Workforce & Absence Management Portal',
       signInTab: 'Sign In',
       signUpTab: 'Register Account',
       signInTitle: 'Welcome Back',
@@ -98,8 +97,8 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
       successSignUp: 'Account successfully registered! You can now sign in.',
     },
     zh: {
-      portalTitle: '泰崇员工假勤管理系统',
-      portalSubtitle: '企业级多级签核 (Multi-PIC) 人力与假期管理平台',
+      portalTitle: '泰崇自动化有限公司 / 泰崇工程与钢结构有限公司',
+      portalSubtitle: 'TAICHONG AUTOMATION / ENGINEERING • 企业级多级签核假勤管理系统',
       signInTab: '登录系统',
       signUpTab: '注册新账号',
       signInTitle: '欢迎回来',
@@ -157,9 +156,10 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
     setTimeout(() => {
       setIsLoading(false);
       setFeedback({ type: 'success', message: t.successSignIn });
-      if (onLoginSuccess) {
-        onLoginSuccess({ identifier: signInData.identifier, name: signUpData.fullName });
-      }
+      const displayName = signInData.identifier.includes('@')
+        ? signInData.identifier.split('@')[0]
+        : signInData.identifier;
+      onLoginSuccess?.({ identifier: signInData.identifier, name: displayName });
     }, 1200);
   };
 
@@ -207,17 +207,17 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
     <div className="min-h-screen w-full bg-slate-900 text-slate-100 flex flex-col justify-between selection:bg-teal-500 selection:text-white">
       {/* Top Navbar */}
       <header className="w-full px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <ShieldCheck className="w-6 h-6 text-white" />
+        <div className="flex items-center space-x-3 max-w-2xl">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-white p-1 flex items-center justify-center shadow-md border border-slate-700">
+            <img src="/assets/aistudio/image_c79a9ae7.png" alt="Taichong Logo" className="w-full h-full object-contain rounded-lg" />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-white">{t.portalTitle}</h1>
-            <p className="text-[11px] text-slate-400">{t.portalSubtitle}</p>
+            <h1 className="text-xs sm:text-sm font-bold tracking-tight text-white leading-tight">{t.portalTitle}</h1>
+            <p className="text-[10px] text-slate-400">{t.portalSubtitle}</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 shrink-0">
           <button
             onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
             className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
@@ -233,6 +233,16 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-950/20 via-slate-900 to-slate-950 pointer-events-none"></div>
 
         <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+          {/* Logo Brand Header */}
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-lg shadow-teal-600/20 border border-slate-700">
+              <img src="/assets/aistudio/image_c79a9ae7.png" alt="Taichong Logo" className="w-full h-full object-contain rounded-xl" />
+            </div>
+            <h2 className="text-xs font-semibold text-slate-400 tracking-wider uppercase">
+              TAICHONG AUTOMATION & ENGINEERING
+            </h2>
+          </div>
+
           {/* Mode Tabs */}
           <div className="grid grid-cols-2 bg-slate-950 p-1 rounded-2xl border border-slate-800">
             <button
@@ -257,9 +267,9 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
 
           {/* Header Description */}
           <div className="space-y-1">
-            <h2 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-white">
               {mode === 'signin' ? t.signInTitle : t.signUpTitle}
-            </h2>
+            </h3>
             <p className="text-xs text-slate-400">
               {mode === 'signin' ? t.signInDesc : t.signUpDesc}
             </p>
@@ -509,8 +519,10 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
 
       {/* Footer */}
       <footer className="w-full py-4 text-center text-xs text-slate-500 border-t border-slate-800 bg-slate-900/50">
-        © 2026 Tai Chong Enterprise Leave Portal • Enterprise Multi-PIC Routing Engine
+        © 2026 TAICHONG AUTOMATION SDN BHD / TAICHONG ENGINEERING & STEELWORKS SDN BHD • Multi-PIC Routing Engine
       </footer>
     </div>
   );
 }
+
+export { AuthPage };

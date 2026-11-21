@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AuthPage } from './components/AuthPage';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -11,13 +12,16 @@ import { AiHrAssistant } from './components/AiHrAssistant';
 import { ActiveTab, UserRole, LeaveRequest, LeaveBalance, ModelName, ThinkingLevelOption } from './types';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ identifier: string; name: string } | null>(null);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [userRole, setUserRole] = useState<UserRole>('manager'); // Set to manager so user can see approval workflow immediately
+  const [userRole, setUserRole] = useState<UserRole>('employee');
   const [currentModel, setCurrentModel] = useState<ModelName>('gemini-4-hydrogen');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>('HIGH');
 
   const [balances, setBalances] = useState<LeaveBalance[]>([
-    { leaveType: 'Annual Leave', total: 20, used: 4, pending: 4 },
+    { leaveType: 'Annual Leave', total: 20, used: 4, pending: 1 },
     { leaveType: 'Sick Leave', total: 14, used: 1, pending: 0 },
     { leaveType: 'Parental Leave', total: 60, used: 0, pending: 0 },
     { leaveType: 'Compassionate Leave', total: 5, used: 0, pending: 0 },
@@ -31,42 +35,24 @@ export default function App() {
     } catch {}
     return [
       {
-        id: 'conn-1',
+        id: '1',
         employeeName: 'Connie Cho',
         employeeEmail: 'connie.cho@company.com',
         department: 'Manufacturing & Stamping',
         jobTitle: 'Production Line Operator',
+        directSupervisor: 'CCCho',
         leaveType: 'Annual Leave',
         startDate: '2026-12-01',
         endDate: '2026-12-04',
         totalDays: 4,
         isHalfDay: false,
-        reason: 'Family trip',
-        handoverNotes: 'Production line B coverage assigned to Robert Taylor during 4-day absence.',
+        reason: 'Family vacation',
+        handoverNotes: 'Production line B coverage assigned.',
         coverageColleague: 'Robert Taylor',
         status: 'Pending',
         appliedAt: Date.now(),
-        approverName: 'Marcus Vance (Manufacturing Supervisor)',
-        workflowStep: 'Level 1: Line Supervisor Review',
-      },
-      {
-        id: '2',
-        employeeName: 'Jordan Lee',
-        employeeEmail: 'jordan.lee@company.com',
-        department: 'Product',
-        jobTitle: 'Product Manager',
-        leaveType: 'Sick Leave',
-        startDate: '2026-11-22',
-        endDate: '2026-11-23',
-        totalDays: 2,
-        isHalfDay: false,
-        reason: 'Medical procedure and recovery.',
-        handoverNotes: 'Product backlog groomed. David taking over sync calls.',
-        coverageColleague: 'David Chen',
-        status: 'Pending',
-        appliedAt: Date.now() - 86400000,
-        approverName: 'Elena Rostova (Head of Product)',
-        workflowStep: 'Level 1: Department Head Review',
+        approverName: 'CCCho (Shift Supervisor)',
+        workflowStep: 'Tier 2: Plant Operations Manager Sign-off',
       },
     ];
   });
@@ -85,8 +71,6 @@ export default function App() {
       id: Date.now().toString(),
       appliedAt: Date.now(),
       status: 'Pending',
-      approverName: 'Marcus Vance (Manufacturing Supervisor)',
-      workflowStep: 'Level 1: Line Supervisor Review',
     };
     setRequests((prev) => [request, ...prev]);
 
@@ -134,13 +118,72 @@ export default function App() {
 
   const pendingCount = requests.filter((r) => r.status === 'Pending').length;
 
+  if (!isAuthenticated) {
+    return (
+      <AuthPage
+        onLoginSuccess={(userData) => {
+          setCurrentUser(userData);
+          setIsAuthenticated(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
-      <Navbar
-        userRole={userRole}
-        setUserRole={setUserRole}
-        pendingApprovalsCount={pendingCount}
-      />
+      <header className="h-16 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
+        <div className="flex items-center space-x-3 max-w-2xl">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-zinc-800">
+            <img src="/assets/aistudio/image_c79a9ae7.png" alt="Taichong Logo" className="w-full h-full object-contain rounded-lg" />
+          </div>
+          <div>
+            <h1 className="text-xs sm:text-sm font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent tracking-tight leading-tight">
+              TAICHONG AUTOMATION / ENGINEERING
+            </h1>
+            <p className="text-[10px] text-zinc-400 font-medium">
+              LeaveFlow Pro • Welcome, <span className="text-emerald-400 font-bold">{currentUser?.name || 'User'}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4 shrink-0">
+          {/* Role Switcher */}
+          <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-xs">
+            <span className="text-zinc-500 px-2 font-medium">Role:</span>
+            <button
+              onClick={() => setUserRole('employee')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                userRole === 'employee' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Employee
+            </button>
+            <button
+              onClick={() => setUserRole('manager')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors relative ${
+                userRole === 'manager' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Manager / HR
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              setIsAuthenticated(false);
+              setCurrentUser(null);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-rose-900/30 text-rose-400 border border-zinc-800 text-xs font-semibold transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </header>
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
@@ -164,6 +207,7 @@ export default function App() {
               setActiveTab={setActiveTab}
               currentModel={currentModel}
               thinkingLevel={thinkingLevel}
+              currentUser={currentUser || undefined}
             />
           )}
           {activeTab === 'my-requests' && (
