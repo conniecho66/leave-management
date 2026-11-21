@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 
 dotenv.config();
 
@@ -25,14 +27,14 @@ const ai = new GoogleGenAI({
 
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '25mb' }));
 
   const PORT = Number(process.env.PORT || 3000);
 
   // API Routes
   app.post('/api/ai/generate', async (req, res) => {
     try {
-      const { prompt, model = 'gemini-4-hydrogen', systemInstruction, thinkingLevel, responseSchema, temperature } = req.body;
+      const { prompt, model = 'gemini-4-hydrogen', systemInstruction, thinkingLevel, responseSchema } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
@@ -47,7 +49,6 @@ async function startServer() {
         config.responseMimeType = 'application/json';
         config.responseSchema = responseSchema;
       }
-      // Note: gemini-4 models don't support temperature, but other models might or we omit if not needed.
 
       const response = await ai.models.generateContent({
         model: model || 'gemini-4-hydrogen',
@@ -99,6 +100,100 @@ async function startServer() {
     }
   });
 
+  // Multimodal Document & File Analysis Endpoint
+  app.post('/api/ai/analyze-document', async (req, res) => {
+    try {
+      const { base64Data, mimeType, fileName, prompt = 'Extract document type, employee name, leave dates, diagnosis/reason, and key audit verification details.' } = req.body;
+
+      if (!base64Data || !mimeType) {
+        return res.status(400).json({ error: 'base64Data and mimeType are required' });
+      }
+
+      // Strip data uri prefix if present
+      const base64Clean = base64Data.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(base64Clean, 'base64');
+
+      let contents: any = null;
+      const lowerName = (fileName || '').toLowerCase();
+
+      // 1. Excel files (.xlsx, .xls)
+      if (
+        mimeType.includes('spreadsheetml') ||
+        mimeType.includes('excel') ||
+        lowerName.endsWith('.xlsx') ||
+        lowerName.endsWith('.xls')
+      ) {
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        let extractedText = '';
+        workbook.SheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const csv = XLSX.utils.sheet_to_csv(sheet);
+          extractedText += `--- Sheet: ${sheetName} ---\n${csv}\n`;
+        });
+        contents = `Analyze the following spreadsheet data extracted from ${fileName}:\n\n${extractedText}\n\nTask: ${prompt}`;
+      }
+      // 2. Word documents (.docx)
+      else if (
+        mimeType.includes('wordprocessingml') ||
+        lowerName.endsWith('.docx')
+      ) {
+        const result = await mammoth.extractRawText({ buffer });
+        contents = `Analyze the following Word document extracted from ${fileName}:\n\n${result.value}\n\nTask: ${prompt}`;
+      }
+      // 3. Plain Text or CSV files
+      else if (
+        mimeType.includes('text/plain') ||
+        mimeType.includes('text/csv') ||
+        lowerName.endsWith('.txt') ||
+        lowerName.endsWith('.csv')
+      ) {
+        const textContent = buffer.toString('utf-8');
+        contents = `Analyze the following text file from ${fileName}:\n\n${textContent}\n\nTask: ${prompt}`;
+      }
+      // 4. PDFs and Images (PDF, JPEG, PNG, WEBP, HEIC)
+      else {
+        const filePart = {
+          inlineData: {
+            mimeType,
+            data: base64Clean,
+          },
+        };
+        const textPart = {
+          text: prompt,
+        };
+        contents = { parts: [filePart, textPart] };
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents,
+        config: {
+          systemInstruction: 'You are an Enterprise HR Document Auditor and Medical Certificate (MC) verification specialist for TAICHONG AUTOMATION / ENGINEERING. Extract structured JSON details such as document type, employee name, start date, end date, reason/diagnosis, and verification validity.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              documentType: { type: Type.STRING, description: 'Type of document e.g. Medical Certificate, MC, Flight Ticket, Letter' },
+              employeeName: { type: Type.STRING, description: 'Employee name if found' },
+              startDate: { type: Type.STRING, description: 'Leave start date YYYY-MM-DD' },
+              endDate: { type: Type.STRING, description: 'Leave end date YYYY-MM-DD' },
+              totalDays: { type: Type.NUMBER, description: 'Number of leave days' },
+              reasonOrDiagnosis: { type: Type.STRING, description: 'Reason or medical diagnosis' },
+              issuerOrClinic: { type: Type.STRING, description: 'Clinic or issuer name' },
+              isValid: { type: Type.BOOLEAN, description: 'Whether the document appears authentic and valid' },
+              summary: { type: Type.STRING, description: 'Brief audit summary' },
+            },
+          },
+        },
+      });
+
+      res.json({ analysis: JSON.parse(response.text || '{}') });
+    } catch (error: any) {
+      console.error('Analyze document error:', error);
+      res.status(500).json({ error: error.message || 'Document analysis failed' });
+    }
+  });
+
   // Vite middleware for frontend
   const vite = await createViteServer({
     server: { middlewareMode: true },
@@ -108,7 +203,7 @@ async function startServer() {
   app.use(vite.middlewares);
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`NexusAI Studio server running on http://localhost:${PORT}`);
+    console.log(`LeaveFlow Pro server running on http://localhost:${PORT}`);
   });
 }
 

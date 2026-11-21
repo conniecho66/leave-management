@@ -20,46 +20,29 @@ export default function App() {
   const [currentModel, setCurrentModel] = useState<ModelName>('gemini-4-hydrogen');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>('HIGH');
 
+  // Clean leave quotas: 0 used, 0 pending
   const [balances, setBalances] = useState<LeaveBalance[]>([
-    { leaveType: 'Annual Leave', total: 20, used: 4, pending: 1 },
-    { leaveType: 'Sick Leave', total: 14, used: 1, pending: 0 },
+    { leaveType: 'Annual Leave', total: 20, used: 0, pending: 0 },
+    { leaveType: 'Sick Leave', total: 14, used: 0, pending: 0 },
     { leaveType: 'Parental Leave', total: 60, used: 0, pending: 0 },
     { leaveType: 'Compassionate Leave', total: 5, used: 0, pending: 0 },
     { leaveType: 'Study Leave', total: 10, used: 0, pending: 0 },
   ]);
 
+  // Switch storage key to purge old mock data from browser localStorage
+  const STORAGE_KEY = 'taichong_leave_requests_v2';
+
   const [requests, setRequests] = useState<LeaveRequest[]>(() => {
     try {
-      const saved = localStorage.getItem('leaveflow_requests');
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      {
-        id: '1',
-        employeeName: 'Connie Cho',
-        employeeEmail: 'connie.cho@company.com',
-        department: 'Manufacturing & Stamping',
-        jobTitle: 'Production Line Operator',
-        directSupervisor: 'CCCho',
-        leaveType: 'Annual Leave',
-        startDate: '2026-12-01',
-        endDate: '2026-12-04',
-        totalDays: 4,
-        isHalfDay: false,
-        reason: 'Family vacation',
-        handoverNotes: 'Production line B coverage assigned.',
-        coverageColleague: 'Robert Taylor',
-        status: 'Pending',
-        appliedAt: Date.now(),
-        approverName: 'CCCho (Shift Supervisor)',
-        workflowStep: 'Tier 2: Plant Operations Manager Sign-off',
-      },
-    ];
+    return []; // Start completely empty: no fake initial requests
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem('leaveflow_requests', JSON.stringify(requests));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
     } catch (err) {
       console.error('Failed to save requests', err);
     }
@@ -130,8 +113,10 @@ export default function App() {
           );
           if (isAdminOrManager) {
             setUserRole('manager');
+            setActiveTab('dashboard');
           } else {
             setUserRole('employee');
+            setActiveTab('apply'); // Employees start directly on Apply Leave
           }
         }}
       />
@@ -160,7 +145,7 @@ export default function App() {
           <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-xs">
             <span className="text-zinc-500 px-2 font-medium">Role:</span>
             <button
-              onClick={() => setUserRole('employee')}
+              onClick={() => { setUserRole('employee'); setActiveTab('apply'); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
                 userRole === 'employee' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
               }`}
@@ -168,7 +153,7 @@ export default function App() {
               Employee
             </button>
             <button
-              onClick={() => setUserRole('manager')}
+              onClick={() => { setUserRole('manager'); setActiveTab('dashboard'); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors relative ${
                 userRole === 'manager' || userRole === 'admin' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:text-zinc-200'
               }`}
@@ -253,7 +238,7 @@ export default function App() {
       {/* Mobile Bottom Navigation */}
       <nav aria-label="Mobile Navigation" className="md:hidden border-t border-zinc-800 bg-zinc-950 px-2 py-2 flex items-center justify-around shrink-0 text-[11px]">
         {[
-          { id: 'dashboard', label: 'Home' },
+          ...(userRole === 'manager' || userRole === 'admin' ? [{ id: 'dashboard', label: 'Home' }] : []),
           { id: 'apply', label: 'Apply' },
           { id: 'my-requests', label: 'My Requests' },
           ...(userRole === 'manager' || userRole === 'admin' ? [{ id: 'approvals', label: 'Approvals' }] : []),

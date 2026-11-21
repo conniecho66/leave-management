@@ -10,17 +10,22 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userRole, pendingCount }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview & balances' },
-    { id: 'apply', label: 'Apply Leave', icon: PlusCircle, desc: 'Submit new request' },
-    { id: 'my-requests', label: 'My Requests', icon: FileText, desc: 'Track leave status' },
-    ...(userRole === 'manager' || userRole === 'admin'
-      ? [{ id: 'approvals', label: 'Team Approvals', icon: CheckSquare, desc: 'Approve or reject', badge: pendingCount }]
-      : []),
-    { id: 'calendar', label: 'Team Calendar', icon: Calendar, desc: 'Schedule & timeline' },
-    { id: 'payroll', label: 'Payroll Sync', icon: DollarSign, desc: 'Unpaid leave & deductions' },
-    { id: 'ai-assistant', label: 'AI HR Assistant', icon: Bot, desc: 'Policy & handover AI' },
-  ];
+  // Employees only see Apply Leave and My Requests
+  const navItems =
+    userRole === 'employee'
+      ? [
+          { id: 'apply', label: 'Apply Leave', icon: PlusCircle, desc: 'Submit new request' },
+          { id: 'my-requests', label: 'My Requests', icon: FileText, desc: 'Track leave status' },
+        ]
+      : [
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview & balances' },
+          { id: 'apply', label: 'Apply Leave', icon: PlusCircle, desc: 'Submit new request' },
+          { id: 'my-requests', label: 'My Requests', icon: FileText, desc: 'Track leave status' },
+          { id: 'approvals', label: 'Team Approvals', icon: CheckSquare, desc: 'Approve or reject', badge: pendingCount },
+          { id: 'calendar', label: 'Team Calendar', icon: Calendar, desc: 'Schedule & timeline' },
+          { id: 'payroll', label: 'Payroll Sync', icon: DollarSign, desc: 'Unpaid leave & deductions' },
+          { id: 'ai-assistant', label: 'AI HR Assistant', icon: Bot, desc: 'Policy & handover AI' },
+        ];
 
   return (
     <aside className="w-72 border-r border-zinc-800 bg-zinc-950/80 p-4 flex flex-col space-y-2 shrink-0 hidden md:flex">
@@ -71,10 +76,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, userR
       <div className="p-3.5 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 text-xs">
         <div className="font-semibold text-zinc-300 mb-1 flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Payroll Bridge Active</span>
+          <span>Role: {userRole}</span>
         </div>
         <p className="text-zinc-400 text-[11px] leading-relaxed">
-          Automatic unpaid leave deductions and salary sync enabled.
+          {userRole === 'employee' ? 'Employee leave application mode active.' : 'Manager / Admin approval portal active.'}
         </p>
       </div>
     </aside>
