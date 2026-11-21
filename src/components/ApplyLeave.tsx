@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PlusCircle, Sparkles, Calendar, User, FileText, Send, Loader2, UserCheck } from 'lucide-react';
-import { LeaveType, LeaveRequest, ActiveTab, ModelName, ThinkingLevelOption } from '../types';
+import { LeaveType, LeaveRequest, ActiveTab, ModelName, ThinkingLevelOption, DIRECT_SUPERVISORS } from '../types';
 
 interface ApplyLeaveProps {
   onAddRequest: (request: Omit<LeaveRequest, 'id' | 'appliedAt' | 'status'>) => void;
@@ -14,6 +14,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
   const [employeeEmail, setEmployeeEmail] = useState('connie.cho@company.com');
   const [department, setDepartment] = useState('Manufacturing & Stamping');
   const [jobTitle, setJobTitle] = useState('Production Line Operator');
+  const [directSupervisor, setDirectSupervisor] = useState(DIRECT_SUPERVISORS[2].value); // CCCho default
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual Leave');
   const [startDate, setStartDate] = useState('2026-12-01');
   const [endDate, setEndDate] = useState('2026-12-04');
@@ -22,7 +23,6 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
   const [reason, setReason] = useState('Family trip');
   const [handoverNotes, setHandoverNotes] = useState('Production line B coverage assigned during absence.');
   const [coverageColleague, setCoverageColleague] = useState('Robert Taylor');
-  const [approverName, setApproverName] = useState('Marcus Vance (Manufacturing Supervisor)');
   const [workflowStep, setWorkflowStep] = useState('Level 1: Line Supervisor Review');
 
   const [aiLoading, setAiLoading] = useState(false);
@@ -67,6 +67,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
       employeeEmail,
       department,
       jobTitle,
+      directSupervisor,
       leaveType,
       startDate,
       endDate,
@@ -76,11 +77,11 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
       reason,
       handoverNotes,
       coverageColleague,
-      approverName,
-      workflowStep,
+      approverName: `${directSupervisor} (Shift Supervisor)`,
+      workflowStep: totalDays > 3 ? 'Extended Leave (Multi-Tier Approval)' : workflowStep,
     });
 
-    alert('Leave application submitted successfully and assigned to PIC for approval!');
+    alert('Leave application submitted successfully and assigned to supervisor for approval!');
     setActiveTab('my-requests');
   };
 
@@ -92,7 +93,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
         </div>
         <div>
           <h2 className="text-lg font-bold text-white">Apply for Leave</h2>
-          <p className="text-xs text-zinc-400">Submit your leave application and assign PIC approver workflow</p>
+          <p className="text-xs text-zinc-400">Submit your leave application and select your authorized direct supervisor</p>
         </div>
       </div>
 
@@ -122,7 +123,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Department</label>
               <input
@@ -142,6 +143,20 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Direct Supervisor (Tier 1)</label>
+              <select
+                value={directSupervisor}
+                onChange={(e) => setDirectSupervisor(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-emerald-400 font-semibold focus:outline-none focus:border-emerald-500"
+              >
+                {DIRECT_SUPERVISORS.map((sup) => (
+                  <option key={sup.value} value={sup.value} className="bg-zinc-900 text-zinc-200">
+                    {sup.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -190,30 +205,6 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
-                required
-              />
-            </div>
-          </div>
-
-          {/* PIC Approver & Workflow Assignment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Assigned Approver (PIC)</label>
-              <input
-                type="text"
-                value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Workflow Status / Stage</label>
-              <input
-                type="text"
-                value={workflowStep}
-                onChange={(e) => setWorkflowStep(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-medium focus:outline-none"
                 required
               />
             </div>
@@ -281,20 +272,20 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
                 <span className="font-semibold text-white">{department} • {jobTitle}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-zinc-400">Direct Supervisor:</span>
+                <span className="font-semibold text-emerald-400">{directSupervisor}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-zinc-400">Type:</span>
                 <span className="font-semibold text-white">{leaveType}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Total Working Days:</span>
+                <span className="text-zinc-400">Total Days:</span>
                 <span className="font-semibold text-emerald-400">{totalDays} Days</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Assigned PIC:</span>
-                <span className="font-semibold text-cyan-400">{approverName}</span>
-              </div>
               <div className="flex justify-between pt-2 border-t border-zinc-800">
-                <span className="text-zinc-400">Workflow Stage:</span>
-                <span className="font-semibold text-amber-400">{workflowStep}</span>
+                <span className="text-zinc-400">Workflow Tier:</span>
+                <span className="font-semibold text-amber-400">Multi-Tier (3 Tiers)</span>
               </div>
             </div>
           </div>
@@ -304,7 +295,7 @@ export const ApplyLeave: React.FC<ApplyLeaveProps> = ({ onAddRequest, setActiveT
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20"
           >
             <Send className="w-4 h-4" />
-            <span>Submit & Assign Approver</span>
+            <span>Submit & Route to Supervisor</span>
           </button>
         </div>
       </form>

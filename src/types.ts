@@ -6,12 +6,21 @@ export type LeaveType = 'Annual Leave' | 'Sick Leave' | 'Parental Leave' | 'Unpa
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
+export const DIRECT_SUPERVISORS = [
+  { value: "SSCho", label: "SSCho (Shift Supervisor / 班组主管)" },
+  { value: "CYCho", label: "CYCho (Shift Supervisor / 班组主管)" },
+  { value: "CCCho", label: "CCCho (Shift Supervisor / 班组主管)" },
+  { value: "Connie Cho", label: "Connie Cho (Shift Supervisor / 班组主管)" },
+  { value: "Ana Cho", label: "Ana Cho (Shift Supervisor / 班组主管)" },
+];
+
 export interface LeaveRequest {
   id: string;
   employeeName: string;
   employeeEmail: string;
   department: string;
   jobTitle?: string;
+  directSupervisor?: string;
   leaveType: LeaveType;
   startDate: string;
   endDate: string;
